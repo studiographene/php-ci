@@ -10,7 +10,7 @@ on:
 
 jobs:
   call-workflow:
-    uses: studiographene/nodejs-ci/.github/workflows/ci.yml@master
+    uses: studiographene/php-ci/.github/workflows/ci.yml@master
     with:
       project_name: microservice-boilerplate
       package_manager: pnpm
