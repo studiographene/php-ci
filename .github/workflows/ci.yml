@@ -176,7 +176,6 @@ jobs:
         if: ${{ !contains( inputs.excluded_jobs, 'danger' ) && (github.actor != 'dependabot[bot]') }}
         runs-on: ubuntu-latest
         permissions: write-all
-        needs: caching
         container:
             image: public.ecr.aws/u6u3h0g1/docker-nodejs-ci:2.2
         steps:
