@@ -29,10 +29,44 @@ on:
             semgrep_options:
                 type: string
                 default: ""
-            danger_before_steps:
+            danger_before_script:
                 type: string
                 default: ""    
-
+            danger_after_script:
+                type: string
+                default: ""    
+            semgrep_before_script:
+                type: string
+                default: ""    
+            semgrep_after_script:
+                type: string
+                default: ""     
+            sbom_before_script:
+                type: string
+                default: ""  
+            sbom_after_script:
+                type: string
+                default: ""   
+            osv_before_script:
+                type: string
+                default: ""  
+            osv_after_script:
+                type: string
+                default: ""   
+            licensescan_before_script:
+                type: string
+                default: "" 
+            licensescan_after_script:
+                type: string
+                default: ""          
+            gitleaks_before_script:
+                type: string
+                default: ""
+            gitleaks_after_script:
+                type: string
+                default: ""                
+                  
+                  
 jobs:
 
 
@@ -48,6 +82,9 @@ jobs:
               uses: actions/checkout@v3
               with:
                 ref: ${{ github.REF }}
+            - name: Semgrep before steps
+              run: |
+                ${{ inputs.semgrep_before_script}}       
             - name: SAST Scan
               id : generate_report
               run: |
@@ -95,6 +132,10 @@ jobs:
                     --- | --- | --- | --- \n
                     ${{steps.generate_report.outputs.report}}\n\n
                   "
+            - name: Semgrep after steps
+              run: |
+                ${{ inputs.semgrep_after_script}}               
+
 
     sbom:
         name: SBOM Generator using CycloneDX
@@ -107,6 +148,9 @@ jobs:
               uses: actions/checkout@v3
               with:
                 ref: ${{ github.REF }}
+            - name: SBOM before steps
+              run: |
+                  ${{ inputs.sbom_before_script}}                
             - name: generate sbom
               run: |
                 cdxgen -r -o bom.xml -p
@@ -119,6 +163,9 @@ jobs:
               with:
                 name: sbom
                 path: bom.xml
+            - name: SBOM after steps
+              run: |
+                   ${{ inputs.sbom_after_script}}                
 
     osv:
         name: OSV/Dependency Scan using Google OSV
@@ -134,9 +181,17 @@ jobs:
               with:
                 name: sbom
                 path: .
+            - name: osv before steps
+              run: |
+                 ${{ inputs.osv_before_script}}                
             - name: OSV Scan
               run: |
                 osv-scanner --format table --config=/root/configs/osv/config.toml --sbom=bom.xml
+            - name: osv after steps
+              run: |
+                 ${{ inputs.osv_before_script}}  
+                 
+                 
     licenseScan:
         name: Executing a licenseScan using studiographene-cli
         needs: sbom
@@ -150,6 +205,9 @@ jobs:
               uses: actions/checkout@v3
               with:
                 ref: ${{ github.REF }}
+            - name: licesnseScan before steps
+              run: |
+                 ${{ inputs.licensescan_before_script}}     
             - name: Download Artifact
               uses: actions/download-artifact@v2
               with:
@@ -158,7 +216,12 @@ jobs:
             - name: License Scan
               run: |
                 /root/executables/studiographene-ci check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}
-    
+            - name: licesnseScan after steps
+              run: |
+                 ${{ inputs.licensescan_after_script}}
+
+
+
     gitleaks:
         name: Gitleaks scan to find secrets
         if: ${{ !contains( inputs.excluded_jobs, 'gitleaks' ) && (github.actor != 'dependabot[bot]') }}
@@ -169,10 +232,16 @@ jobs:
               uses: actions/checkout@v3
               with:
                 fetch-depth: 0
+            - name: gitleaks before steps
+              run: |
+                   ${{ inputs.gitleaks_before_script}}
             - name: Gitleaks scan
               uses:  gitleaks/gitleaks-action@v1.6.0
               env:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: gitleaks after steps
+              run: |
+                   ${{ inputs.gitleaks_after_script}}              
 
     danger:
         name: run danger check
@@ -210,9 +279,11 @@ jobs:
                 key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
                 restore-keys: |
                   ${{ runner.os }}-pnpm-
+            - name: danger before steps
+              run: |
+               ${{ inputs.danger_before_script}}          
             - name: Install dependencies
               run: |
-                ${{ inputs.danger_before_steps}}  
                 ${{ inputs.package_manager }} install
               env:
                 NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -222,3 +293,6 @@ jobs:
                 danger ci
               env:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: danger after steps
+              run: |
+                ${{ inputs.danger_after_script}}     
