@@ -29,6 +29,9 @@ on:
             semgrep_options:
                 type: string
                 default: ""
+            danger_before_steps:
+                type: string
+                default: ""    
 
 jobs:
 
@@ -209,6 +212,7 @@ jobs:
                   ${{ runner.os }}-pnpm-
             - name: Install dependencies
               run: |
+                ${{ inputs.danger_before_steps}}  
                 ${{ inputs.package_manager }} install
               env:
                 NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
