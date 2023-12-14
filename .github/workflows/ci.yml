@@ -1,298 +1,290 @@
 name: studiographene-ci
 on:
-    workflow_call:
-        inputs:
-            project_name:
-                type: string
-                default: "sg-ci"
-            excluded_jobs:
-                type: string
-                default: ""
-            package_manager:
-                type: string
-                default: "npm"
-            npm_token:
-                type: string
-                default: ""
-            build_command:
-                type: string
-                default: "npm run build"
-            docker_build_command:
-                type: string
-                default: "docker build -t local:latest ."
-            lint_command:
-                type: string
-                default: "npm run lint"
-            allowedLicenses:
-                type: string
-                default: "allowed_licenses.txt"
-            semgrep_options:
-                type: string
-                default: ""
-            danger_before_step_command:
-                type: string
-                default: ""    
-            danger_after_step_command:
-                type: string
-                default: ""    
-            semgrep_before_step_command:
-                type: string
-                default: ""    
-            semgrep_after_step_command:
-                type: string
-                default: ""     
-            sbom_before_step_command:
-                type: string
-                default: ""  
-            sbom_after_step_command:
-                type: string
-                default: ""   
-            osv_before_step_command:
-                type: string
-                default: ""  
-            osv_after_step_command:
-                type: string
-                default: ""   
-            licensescan_before_step_command:
-                type: string
-                default: "" 
-            licensescan_after_step_command:
-                type: string
-                default: ""          
-            gitleaks_before_step_command:
-                type: string
-                default: ""
-            gitleaks_after_step_command:
-                type: string
-                default: ""                
-                  
-                  
+  workflow_call:
+    inputs:
+      project_name:
+        type: string
+        default: "sg-ci"
+      excluded_jobs:
+        type: string
+        default: ""
+      package_manager:
+        type: string
+        default: "npm"
+      npm_token:
+        type: string
+        default: ""
+      build_command:
+        type: string
+        default: "npm run build"
+      docker_build_command:
+        type: string
+        default: "docker build -t local:latest ."
+      lint_command:
+        type: string
+        default: "npm run lint"
+      allowedLicenses:
+        type: string
+        default: "allowed_licenses.txt"
+      semgrep_options:
+        type: string
+        default: ""
+      danger_before_step_command:
+        type: string
+        default: ""
+      danger_after_step_command:
+        type: string
+        default: ""
+      semgrep_before_step_command:
+        type: string
+        default: ""
+      semgrep_after_step_command:
+        type: string
+        default: ""
+      sbom_before_step_command:
+        type: string
+        default: ""
+      sbom_after_step_command:
+        type: string
+        default: ""
+      osv_before_step_command:
+        type: string
+        default: ""
+      osv_after_step_command:
+        type: string
+        default: ""
+      licensescan_before_step_command:
+        type: string
+        default: ""
+      licensescan_after_step_command:
+        type: string
+        default: ""
+      gitleaks_before_step_command:
+        type: string
+        default: ""
+      gitleaks_after_step_command:
+        type: string
+        default: ""
+
 jobs:
+  sast:
+    name: SAST Scan using semgrep
+    if: ${{ !contains( inputs.excluded_jobs, 'sast' ) && (github.actor != 'dependabot[bot]') }}
+    runs-on: ubuntu-latest
+    permissions: write-all
+    container:
+      image: public.ecr.aws/studiographene/ci:node-20-alpine
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.REF }}
+      - name: Semgrep before steps
+        run: |
+          ${{ inputs.semgrep_before_step_command}}
+      - name: SAST Scan
+        id: generate_report
+        run: |
+          semgrep scan --config "p/default" --sarif ${{ inputs.semgrep_options }} > semgrep.sarif
 
+          csvData=$(node - << EOF
+          const fs = require('fs');
+          const sarifFile = fs.readFileSync("semgrep.sarif", 'utf8');
+          const sarifData = JSON.parse(sarifFile);
 
-    sast:
-        name: SAST Scan using semgrep
-        if: ${{ !contains( inputs.excluded_jobs, 'sast' ) && (github.actor != 'dependabot[bot]') }}
-        runs-on: ubuntu-latest
-        permissions: write-all
-        container:
-            image: public.ecr.aws/studiographene/ci:node-20-alpine
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-              with:
-                ref: ${{ github.REF }}
-            - name: Semgrep before steps
-              run: |
-                ${{ inputs.semgrep_before_step_command}}       
-            - name: SAST Scan
-              id : generate_report
-              run: |
-                semgrep scan --config "p/default" --sarif ${{ inputs.semgrep_options }} > semgrep.sarif
+          const tableData = [];
 
-                csvData=$(node - << EOF
-                const fs = require('fs');
-                const sarifFile = fs.readFileSync("semgrep.sarif", 'utf8');
-                const sarifData = JSON.parse(sarifFile);
+          for (const run of sarifData.runs) {
+            for (const result of run.results) {
+              let ruleId = result.ruleId.replaceAll(',',';');
+              ruleId = ruleId.replaceAll('\n','');
+              let message = result.message.text.replaceAll(',', ';');
+              message = message.replaceAll('\n','');
+              const severity = result.level;
+              const location = result.locations[0].physicalLocation;
+              const lineNumber = location.region.startLine;
+              const fileName = location.artifactLocation.uri;
+              // Add data to the tableData array
+              tableData.push(ruleId + "|" + message +"|" + lineNumber + "|" + fileName);
+            }
+          }                  
+          // Log the CSV data as a string
+          const csvData = tableData.join('\n');
+          console.log(csvData);
+          EOF
+          )
 
-                const tableData = [];
+          # Append the CSV data to the output file
+          echo 'report<<EOF' >> $GITHUB_OUTPUT
+          echo "$csvData" >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
 
-                for (const run of sarifData.runs) {
-                  for (const result of run.results) {
-                    let ruleId = result.ruleId.replaceAll(',',';');
-                    ruleId = ruleId.replaceAll('\n','');
-                    let message = result.message.text.replaceAll(',', ';');
-                    message = message.replaceAll('\n','');
-                    const severity = result.level;
-                    const location = result.locations[0].physicalLocation;
-                    const lineNumber = location.region.startLine;
-                    const fileName = location.artifactLocation.uri;
-                    // Add data to the tableData array
-                    tableData.push(ruleId + "|" + message +"|" + lineNumber + "|" + fileName);
-                  }
-                }                  
-                // Log the CSV data as a string
-                const csvData = tableData.join('\n');
-                console.log(csvData);
-                EOF
-                )
+      - uses: mshick/add-pr-comment@v2
+        with:
+          message-id: sast-scan
+          message: "### Semgrep Report \n
+            Below are the issues found by semgrep: \n
+            \n\nRule Id | Message | Line Number | File Name \n
+            --- | --- | --- | --- \n
+            ${{steps.generate_report.outputs.report}}\n\n
+            "
+      - name: Semgrep after steps
+        run: |
+          ${{ inputs.semgrep_after_step_command}}
 
-                # Append the CSV data to the output file
-                echo 'report<<EOF' >> $GITHUB_OUTPUT
-                echo "$csvData" >> $GITHUB_OUTPUT
-                echo 'EOF' >> $GITHUB_OUTPUT
+  sbom:
+    name: SBOM Generator using CycloneDX
+    runs-on: ubuntu-latest
+    permissions: write-all
+    container:
+      image: public.ecr.aws/studiographene/ci:node-20-alpine
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.REF }}
+      - name: SBOM before steps
+        run: |
+          ${{ inputs.sbom_before_step_command}}
+      - name: generate sbom
+        run: |
+          cdxgen -r -o bom.xml -p
+        env:
+          FETCH_LICENSE: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CDXGEN_DEBUG_MODE: debug
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: sbom
+          path: bom.xml
+      - name: SBOM after steps
+        run: |
+          ${{ inputs.sbom_after_step_command}}
 
-            - uses: mshick/add-pr-comment@v2
-              with:
-                message-id : sast-scan
-                message:
-                  "### Semgrep Report \n
-                    Below are the issues found by semgrep: \n
-                    \n\nRule Id | Message | Line Number | File Name \n
-                    --- | --- | --- | --- \n
-                    ${{steps.generate_report.outputs.report}}\n\n
-                  "
-            - name: Semgrep after steps
-              run: |
-                ${{ inputs.semgrep_after_step_command}}               
+  osv:
+    name: OSV/Dependency Scan using Google OSV
+    needs: sbom
+    if: ${{ !contains( inputs.excluded_jobs, 'osv' ) && (github.actor != 'dependabot[bot]') }}
+    runs-on: ubuntu-latest
+    permissions: write-all
+    container:
+      image: public.ecr.aws/studiographene/ci:node-20-alpine
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sbom
+          path: .
+      - name: osv before steps
+        run: |
+          ${{ inputs.osv_before_step_command}}
+      - name: OSV Scan
+        run: |
+          osv-scanner --format table --config=/root/configs/osv/config.toml --sbom=bom.xml
+      - name: osv after steps
+        run: |
+          ${{ inputs.osv_before_step_command}}
 
+  licenseScan:
+    name: Executing a licenseScan using studiographene-cli
+    needs: sbom
+    if: ${{ !contains( inputs.excluded_jobs, 'licenseScan' ) && (github.actor != 'dependabot[bot]') }}
+    runs-on: ubuntu-latest
+    permissions: write-all
+    container:
+      image: public.ecr.aws/studiographene/ci:node-20-alpine
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.REF }}
+      - name: LicenseScan before steps
+        run: |
+          ${{ inputs.licensescan_before_step_command}}
+      - name: Download Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sbom
+          path: .
+      - name: License Scan
+        run: |
+          /root/executables/ci-utils check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}
+      - name: LicenseScan after steps
+        run: |
+          ${{ inputs.licensescan_after_step_command}}
 
-    sbom:
-        name: SBOM Generator using CycloneDX
-        runs-on: ubuntu-latest
-        permissions: write-all
-        container:
-            image: public.ecr.aws/studiographene/ci:node-20-alpine
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-              with:
-                ref: ${{ github.REF }}
-            - name: SBOM before steps
-              run: |
-                  ${{ inputs.sbom_before_step_command}}                
-            - name: generate sbom
-              run: |
-                cdxgen -r -o bom.xml -p
-              env:
-                FETCH_LICENSE: true
-                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                CDXGEN_DEBUG_MODE: debug
-            - name: Upload Artifact
-              uses: actions/upload-artifact@v2
-              with:
-                name: sbom
-                path: bom.xml
-            - name: SBOM after steps
-              run: |
-                   ${{ inputs.sbom_after_step_command}}                
+  gitleaks:
+    name: Gitleaks scan to find secrets
+    if: ${{ !contains( inputs.excluded_jobs, 'gitleaks' ) && (github.actor != 'dependabot[bot]') }}
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: gitleaks before steps
+        run: |
+          ${{ inputs.gitleaks_before_step_command}}
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v1.6.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: gitleaks after steps
+        run: |
+          ${{ inputs.gitleaks_after_step_command}}
 
-    osv:
-        name: OSV/Dependency Scan using Google OSV
-        needs: sbom
-        if: ${{ !contains( inputs.excluded_jobs, 'osv' ) && (github.actor != 'dependabot[bot]') }}
-        runs-on: ubuntu-latest
-        permissions: write-all
-        container:
-            image: public.ecr.aws/studiographene/ci:node-20-alpine
-        steps:
-            - name: Download Artifact
-              uses: actions/download-artifact@v2
-              with:
-                name: sbom
-                path: .
-            - name: osv before steps
-              run: |
-                 ${{ inputs.osv_before_step_command}}                
-            - name: OSV Scan
-              run: |
-                osv-scanner --format table --config=/root/configs/osv/config.toml --sbom=bom.xml
-            - name: osv after steps
-              run: |
-                 ${{ inputs.osv_before_step_command}}  
-                 
-                 
-    licenseScan:
-        name: Executing a licenseScan using studiographene-cli
-        needs: sbom
-        if: ${{ !contains( inputs.excluded_jobs, 'licenseScan' ) && (github.actor != 'dependabot[bot]') }}
-        runs-on: ubuntu-latest
-        permissions: write-all
-        container:
-            image: public.ecr.aws/studiographene/ci:node-20-alpine
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-              with:
-                ref: ${{ github.REF }}
-            - name: LicenseScan before steps
-              run: |
-                 ${{ inputs.licensescan_before_step_command}}     
-            - name: Download Artifact
-              uses: actions/download-artifact@v2
-              with:
-                name: sbom
-                path: .
-            - name: License Scan
-              run: |
-                /root/executables/studiographene-ci check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}
-            - name: LicenseScan after steps
-              run: |
-                 ${{ inputs.licensescan_after_step_command}}
-
-
-
-    gitleaks:
-        name: Gitleaks scan to find secrets
-        if: ${{ !contains( inputs.excluded_jobs, 'gitleaks' ) && (github.actor != 'dependabot[bot]') }}
-        runs-on: ubuntu-latest
-        permissions: write-all
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-              with:
-                fetch-depth: 0
-            - name: gitleaks before steps
-              run: |
-                   ${{ inputs.gitleaks_before_step_command}}
-            - name: Gitleaks scan
-              uses:  gitleaks/gitleaks-action@v1.6.0
-              env:
-                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            - name: gitleaks after steps
-              run: |
-                   ${{ inputs.gitleaks_after_step_command}}              
-
-    danger:
-        name: run danger check
-        if: ${{ !contains( inputs.excluded_jobs, 'danger' ) && (github.actor != 'dependabot[bot]') }}
-        runs-on: ubuntu-latest
-        permissions: write-all
-        container:
-            image: public.ecr.aws/studiographene/ci:node-20-alpine
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-              with:
-                ref: ${{ github.REF }}
-            - name: Cache npm modules
-              uses: actions/cache@v3
-              if: inputs.package_manager == 'npm'
-              with:
-                path: ~/.npm
-                key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.lock') }}
-                restore-keys: |
-                  ${{ runner.os }}-npm-
-            - name: Cache yarn modules
-              uses: actions/cache@v3
-              if: inputs.package_manager == 'yarn'
-              with:
-                path: /usr/local/share/.cache/yarn
-                key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-                restore-keys: |
-                  ${{ runner.os }}-yarn-
-            - name: Cache pnpm modules
-              uses: actions/cache@v3
-              if: inputs.package_manager == 'pnpm'
-              with:
-                path: /__w/.pnpm-store
-                key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-                restore-keys: |
-                  ${{ runner.os }}-pnpm-
-            - name: danger before steps
-              run: |
-               ${{ inputs.danger_before_step_command}}          
-            - name: Install dependencies
-              run: |
-                ${{ inputs.package_manager }} install
-              env:
-                NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            - name: danger check
-              run: |
-                cp /root/configs/dangerfile.ts dangerfile.ts
-                danger ci
-              env:
-                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            - name: danger after steps
-              run: |
-                ${{ inputs.danger_after_step_command}}     
+  danger:
+    name: run danger check
+    if: ${{ !contains( inputs.excluded_jobs, 'danger' ) && (github.actor != 'dependabot[bot]') }}
+    runs-on: ubuntu-latest
+    permissions: write-all
+    container:
+      image: public.ecr.aws/studiographene/ci:node-20-alpine
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.REF }}
+      - name: Cache npm modules
+        uses: actions/cache@v3
+        if: inputs.package_manager == 'npm'
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+      - name: Cache yarn modules
+        uses: actions/cache@v3
+        if: inputs.package_manager == 'yarn'
+        with:
+          path: /usr/local/share/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+      - name: Cache pnpm modules
+        uses: actions/cache@v3
+        if: inputs.package_manager == 'pnpm'
+        with:
+          path: /__w/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - name: danger before steps
+        run: |
+          ${{ inputs.danger_before_step_command}}
+      - name: Install dependencies
+        run: |
+          ${{ inputs.package_manager }} install
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: danger check
+        run: |
+          cp /root/configs/dangerfile.ts dangerfile.ts
+          danger ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: danger after steps
+        run: |
+          ${{ inputs.danger_after_step_command}}
