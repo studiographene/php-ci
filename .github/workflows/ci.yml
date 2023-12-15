@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     container:
-      image: public.ecr.aws/studiographene/ci:node-20-alpine
+      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     container:
-      image: public.ecr.aws/studiographene/ci:node-20-alpine
+      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -169,7 +169,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     container:
-      image: public.ecr.aws/studiographene/ci:node-20-alpine
+      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
     steps:
       - name: Download Artifact
         uses: actions/download-artifact@v2
@@ -193,7 +193,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     container:
-      image: public.ecr.aws/studiographene/ci:node-20-alpine
+      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -241,7 +241,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     container:
-      image: public.ecr.aws/studiographene/ci:node-20-alpine
+      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
     steps:
       - name: Checkout
         uses: actions/checkout@v3
