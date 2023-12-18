@@ -1,4 +1,5 @@
 name: studiographene-ci
+
 on:
   workflow_call:
     inputs:
@@ -243,11 +244,11 @@ jobs:
       - name: gitleaks after step
         if: ${{ inputs.gitleaks_after_step_command != '' }}
         run: |
-          ${{ inputs.gitleaks_after_step_command}}
+          ${{ inputs.gitleaks_after_step_command }}
 
   danger_check:
     name: run danger check
-    if: ${{ !contains( inputs.excluded_jobs, 'danger' ) && (github.actor != 'dependabot[bot]') }}
+    if: ${{ !contains( inputs.excluded_jobs, 'danger_check' ) && (github.actor != 'dependabot[bot]') }}
     runs-on: ubuntu-latest
     permissions: write-all
     container:
