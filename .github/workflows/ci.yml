@@ -209,7 +209,7 @@ jobs:
           path: .
       - name: License Scan
         run: |
-          /root/executables/ci-utils check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}
+          /root/executables/ci-utility check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}
       - name: LicenseScan after steps
         run: |
           ${{ inputs.licensescan_after_step_command}}
