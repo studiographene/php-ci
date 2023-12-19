@@ -132,11 +132,31 @@ jobs:
           echo "$csvData" >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
-      - uses: mshick/add-pr-comment@v2
+      # - uses: mshick/add-pr-comment@v2
+      #   with:
+      #     message-id: sast-scan
+      #     message: "### Semgrep Report \n
+      #       Below are the issues found by semgrep: \n
+      #       \n\nRule Id | Message | Line Number | File Name \n
+      #       --- | --- | --- | --- \n
+      #       ${{steps.generate_report.outputs.report}}\n\n
+      #       "
+
+
+
+
+
+      - name: Count words in the output
+        id: count-words
+        run:  echo "word_count=$(echo -n ${{ steps.generate_report.outputs.report }} | wc -w)" >> $GITHUB_ENV
+
+      - name: PR Comment
+        if: steps.count-words.outputs.word_count < 65536
+        uses: mshick/add-pr-comment@v2
         with:
           message-id: sast-scan
           message: "### Semgrep Report \n
-            Below are the issues found by semgrep: \n
+            Below are the issues found by Semgrep: \n
             \n\nRule Id | Message | Line Number | File Name \n
             --- | --- | --- | --- \n
             ${{steps.generate_report.outputs.report}}\n\n
@@ -145,6 +165,26 @@ jobs:
         if: ${{ inputs.semgrep_after_step_command != '' }}
         run: |
           ${{ inputs.semgrep_after_step_command}}
+
+      - name: PR Comment with Artifact Link
+        if: steps.count-words.outputs.word_count >= 65536
+        run: |
+          artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
+          comment_message="The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report."
+          echo "$comment_message"
+          # Use the 'mshick/add-pr-comment' action to add the comment to the PR
+          uses: mshick/add-pr-comment@v2
+          with:
+            message-id: sast-scan
+            message: "${comment_message}"
+
+      - name: Upload Artifact
+        if: steps.count-words.outputs.word_count >= 65536
+        uses: actions/upload-artifact@v3
+        with:
+          name: findings
+          path: semgrep.sarif
+       
 
   sbom:
     name: SBOM Generator using CycloneDX
