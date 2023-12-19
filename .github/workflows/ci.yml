@@ -66,6 +66,17 @@ on:
       gitleaks_after_step_command:
         type: string
         default: ""
+      run_pr_agent:
+        type: string
+        default: "no"   
+      pr_agent_before_step_command:
+        type: string
+        default: ""  
+      pr_agent_after_step_command:
+        type: string
+        default: ""           
+        
+        
 
 jobs:
   sast:
@@ -199,6 +210,11 @@ jobs:
     if: ${{ !contains( inputs.excluded_jobs, 'licenseScan' ) && (github.actor != 'dependabot[bot]') }}
     runs-on: ubuntu-latest
     permissions: write-all
+    env:  
+      ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      PR_NUMBER: ${{ github.event.number }}
+      PROJECT_NAME: ${{ github.event.repository.name }}
+      PROJECT_OWNER: ${{ github.repository_owner }}
     container:
       image: public.ecr.aws/studiographene/ci:php-8.3-alpine
     steps:
@@ -218,6 +234,7 @@ jobs:
       - name: License Scan
         run: |
           /root/executables/ci-utility check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}
+  
       - name: LicenseScan after step
         if: ${{ inputs.licensescan_after_step_command != '' }}
         run: |
@@ -301,3 +318,23 @@ jobs:
         if: ${{ inputs.danger_after_step_command != '' }}
         run: |
           ${{ inputs.danger_after_step_command}}
+         
+  pr_agent:
+    name: Run pr agent on every pull request, respond to user comments
+    if: ${{ ( inputs.run_pr_agent == 'yes' ) && (github.actor != 'dependabot[bot]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR agent before step
+        if: ${{ inputs.pr_agent_before_step_command != '' }}
+        run: |
+          ${{ inputs.pr_agent_before_step_command}}      
+      - name: PR Agent action step
+        id: pragent
+        uses: Codium-ai/pr-agent@main
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: PR agent after step
+        if: ${{ inputs.pr_agent_after_step_command != '' }}
+        run: |
+            ${{ inputs.pr_agent_after_step_command}}                    
