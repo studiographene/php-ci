@@ -219,7 +219,7 @@ jobs:
         run: |
           /root/executables/ci-utility check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}
         env:
-            ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            
             PR_NUMBER: ${{ github.event.number }}
             PROJECT_NAME: ${{ github.event.repository.name }}
             PROJECT_OWNER: ${{ github.repository_owner }}  
