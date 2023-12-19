@@ -150,6 +150,7 @@ jobs:
         id: count-words
         run: echo "word_count=\$(echo -n \${{ steps.generate_report.outputs.report }} | wc -w)" >> $GITHUB_ENV
 
+
       - name: PR Comment
         if: steps.count-words.outputs.word_count < 65536
         uses: mshick/add-pr-comment@v2
