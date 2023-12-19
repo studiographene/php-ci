@@ -199,6 +199,10 @@ jobs:
     if: ${{ !contains( inputs.excluded_jobs, 'licenseScan' ) && (github.actor != 'dependabot[bot]') }}
     runs-on: ubuntu-latest
     permissions: write-all
+    env:   
+      PR_NUMBER: ${{ github.event.number }}
+      PROJECT_NAME: ${{ github.event.repository.name }}
+      PROJECT_OWNER: ${{ github.repository_owner }}
     container:
       image: public.ecr.aws/studiographene/ci:php-8.3-alpine
     steps:
@@ -218,11 +222,7 @@ jobs:
       - name: License Scan
         run: |
           /root/executables/ci-utility check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}
-        env:
-            
-            PR_NUMBER: ${{ github.event.number }}
-            PROJECT_NAME: ${{ github.event.repository.name }}
-            PROJECT_OWNER: ${{ github.repository_owner }}  
+  
       - name: LicenseScan after step
         if: ${{ inputs.licensescan_after_step_command != '' }}
         run: |
