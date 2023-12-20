@@ -84,7 +84,6 @@ jobs:
     if: ${{ !contains( inputs.excluded_jobs, 'sast' ) && (github.actor != 'dependabot[bot]') }}
     runs-on: ubuntu-latest
     permissions: write-all
-    continue-on-error: true
     container:
       image: public.ecr.aws/studiographene/ci:php-8.3-alpine
     steps:
@@ -134,6 +133,7 @@ jobs:
           echo 'EOF' >> $GITHUB_OUTPUT
 
       - uses: mshick/add-pr-comment@v2
+        continue-on-error: true
         id: pr-comment
         with:
           message-id: sast-scan
@@ -144,6 +144,7 @@ jobs:
             ${{steps.generate_report.outputs.report}}\n\n
             "
       - name: Artifact link
+        continue-on-error: true
         if: steps.pr-comment.outcome == 'failure'
         id: artifact
         run: |
@@ -156,6 +157,7 @@ jobs:
 
 
       - name: PR Comment with Artifact Link
+        continue-on-error: true
         if: steps.pr-comment.outcome == 'failure'
         uses: mshick/add-pr-comment@v2
         with:
@@ -163,6 +165,7 @@ jobs:
             message: "${{steps.artifact.outputs.report}}"
 
       - name: Upload Artifact
+        continue-on-error: true
         if: steps.pr-comment.outcome == 'failure'
         uses: actions/upload-artifact@v3
         with:
