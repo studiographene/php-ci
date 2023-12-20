@@ -126,6 +126,8 @@ jobs:
           console.log(csvData);
           EOF
           )
+          # Save the CSV data to a file
+          echo "$csvData" > semgrep_report.csv
 
           # Append the CSV data to the output file
           echo 'report<<EOF' >> $GITHUB_OUTPUT
@@ -149,7 +151,8 @@ jobs:
         id: artifact
         run: |
           artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/#artifacts"
-          comment_message="### Semgrep Report \n The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report.\n"
+          comment_message="### Semgrep Report ###
+          The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report."
           echo "$comment_message"
           echo 'report<<EOF' >> $GITHUB_OUTPUT
           echo "$comment_message" >> $GITHUB_OUTPUT
@@ -170,7 +173,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Semgrep findings report
-          path:  ${{steps.generate_report.outputs.report}}
+          path:   semgrep_report.csv
 
       - name: Semgrep after step
         if: ${{ inputs.semgrep_after_step_command != '' }}
