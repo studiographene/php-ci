@@ -136,7 +136,7 @@ jobs:
         id: count-words
         run: |
           report_content="${{ steps.generate_report.outputs.report }}"
-          word_count=$(echo -n "$report_content" | wc -w)
+          word_count=$(echo "$report_content" | awk '{ print NF }')
           echo "word_count=$word_count" >> $GITHUB_ENV
 
       - name: PR Comment
