@@ -148,8 +148,8 @@ jobs:
         if: steps.pr-comment.outcome == 'failure'
         id: artifact
         run: |
-          artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
-          comment_message="The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report."
+          artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/#artifacts"
+          comment_message="### Semgrep Report \n The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report.\n"
           echo "$comment_message"
           echo 'report<<EOF' >> $GITHUB_OUTPUT
           echo "$comment_message" >> $GITHUB_OUTPUT
@@ -169,8 +169,8 @@ jobs:
         if: steps.pr-comment.outcome == 'failure'
         uses: actions/upload-artifact@v3
         with:
-          name: findings
-          path: semgrep.sarif
+          name: Semgrep findings report
+          path:  ${{steps.generate_report.outputs.report}}
 
       - name: Semgrep after step
         if: ${{ inputs.semgrep_after_step_command != '' }}
