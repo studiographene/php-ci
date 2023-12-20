@@ -144,6 +144,8 @@ jobs:
             ${{steps.generate_report.outputs.report}}\n\n
             "
       - name: Artifact link
+        if: steps.pr-comment.outcome == 'failure'
+        id: artifact
         run: |
           artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
           comment_message="The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report."
@@ -158,7 +160,7 @@ jobs:
         uses: mshick/add-pr-comment@v2
         with:
             message-id: sast-scan
-            message: "${{steps.pr-comment.outputs.report}}"
+            message: "${{steps.artifact.outputs.report}}"
 
       - name: Upload Artifact
         if: steps.pr-comment.outcome == 'failure'
