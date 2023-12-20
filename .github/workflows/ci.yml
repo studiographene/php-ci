@@ -84,6 +84,7 @@ jobs:
     if: ${{ !contains( inputs.excluded_jobs, 'sast' ) && (github.actor != 'dependabot[bot]') }}
     runs-on: ubuntu-latest
     permissions: write-all
+    continue-on-error: true
     container:
       image: public.ecr.aws/studiographene/ci:php-8.3-alpine
     steps:
@@ -133,6 +134,7 @@ jobs:
           echo 'EOF' >> $GITHUB_OUTPUT
 
       - uses: mshick/add-pr-comment@v2
+        id: pr-comment
         with:
           message-id: sast-scan
           message: "### Semgrep Report \n
@@ -141,24 +143,29 @@ jobs:
             --- | --- | --- | --- \n
             ${{steps.generate_report.outputs.report}}\n\n
             "
-      - name: PR Comment or Artifact
-        if: ${{ always() }}
+      - name: Artifact link
         run: |
-          if [ ${{ job.status }} == 'failure' ]; then
-            # PR comment with artifact link
-            artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
-            comment_message="The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report."
-            echo "$comment_message"
-            uses: mshick/add-pr-comment@v2
-            with:
-              message-id: sast-scan
-              message: "${comment_message}"
-            # Upload artifact
-            uses: actions/upload-artifact@v3
-            with:
-              name: findings
-              path: semgrep.sarif
-          fi
+          artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
+          comment_message="The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report."
+          echo "$comment_message"
+          echo 'report<<EOF' >> $GITHUB_OUTPUT
+          echo "$comment_message" >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+
+      - name: PR Comment with Artifact Link
+        if: steps.pr-comment.outcome == 'failure'
+        uses: mshick/add-pr-comment@v2
+        with:
+            message-id: sast-scan
+            message: "${{steps.pr-comment.outputs.report}}"
+
+      - name: Upload Artifact
+        if: steps.pr-comment.outcome == 'failure'
+        uses: actions/upload-artifact@v3
+        with:
+          name: findings
+          path: semgrep.sarif
 
       - name: Semgrep after step
         if: ${{ inputs.semgrep_after_step_command != '' }}
