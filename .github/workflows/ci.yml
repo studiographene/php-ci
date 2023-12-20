@@ -141,6 +141,25 @@ jobs:
             --- | --- | --- | --- \n
             ${{steps.generate_report.outputs.report}}\n\n
             "
+      - name: PR Comment or Artifact
+        if: ${{ always() }}
+        run: |
+          if [ ${{ job.status }} == 'failure' ]; then
+            # PR comment with artifact link
+            artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
+            comment_message="The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report."
+            echo "$comment_message"
+            uses: mshick/add-pr-comment@v2
+            with:
+              message-id: sast-scan
+              message: "${comment_message}"
+            # Upload artifact
+            uses: actions/upload-artifact@v3
+            with:
+              name: findings
+              path: semgrep.sarif
+          fi
+
       - name: Semgrep after step
         if: ${{ inputs.semgrep_after_step_command != '' }}
         run: |
