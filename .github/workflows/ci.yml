@@ -132,30 +132,12 @@ jobs:
           echo "$csvData" >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
-      # - uses: mshick/add-pr-comment@v2
-      #   with:
-      #     message-id: sast-scan
-      #     message: "### Semgrep Report \n
-      #       Below are the issues found by semgrep: \n
-      #       \n\nRule Id | Message | Line Number | File Name \n
-      #       --- | --- | --- | --- \n
-      #       ${{steps.generate_report.outputs.report}}\n\n
-      #       "
-
       - name: Count words in the output
         id: count-words
         run: |
-          echo "Report Content:"
-          echo "${{ steps.generate_report.outputs.report }}"
-          echo "word_count=\$(echo -n '${{ steps.generate_report.outputs.report }}' | wc -w)" >> $GITHUB_ENV
-      
-
-
-
-      # - name: Count words in the output
-      #   id: count-words
-      #   run: echo "word_count=\$(echo -n \${{ steps.generate_report.outputs.report }} | wc -w)" >> $GITHUB_ENV
-
+          report_content="${{ steps.generate_report.outputs.report }}"
+          report_content_no_newlines=$(echo "$report_content" | tr '\n' ' ')
+          echo "word_count=\$(echo -n '${report_content_no_newlines}' | wc -w)" >> $GITHUB_ENV
 
       - name: PR Comment
         if: steps.count-words.outputs.word_count < 65536
