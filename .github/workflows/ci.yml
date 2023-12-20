@@ -142,13 +142,19 @@ jobs:
       #       ${{steps.generate_report.outputs.report}}\n\n
       #       "
 
-
-
-
-
       - name: Count words in the output
         id: count-words
-        run: echo "word_count=\$(echo -n \${{ steps.generate_report.outputs.report }} | wc -w)" >> $GITHUB_ENV
+        run: |
+          echo "Report Content:"
+          echo "${{ steps.generate_report.outputs.report }}"
+          echo "word_count=\$(echo -n '${{ steps.generate_report.outputs.report }}' | wc -w)" >> $GITHUB_ENV
+      
+
+
+
+      # - name: Count words in the output
+      #   id: count-words
+      #   run: echo "word_count=\$(echo -n \${{ steps.generate_report.outputs.report }} | wc -w)" >> $GITHUB_ENV
 
 
       - name: PR Comment
