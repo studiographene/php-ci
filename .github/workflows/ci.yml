@@ -136,8 +136,8 @@ jobs:
         id: count-words
         run: |
           report_content="${{ steps.generate_report.outputs.report }}"
-          report_content_no_newlines=$(echo "$report_content" | tr '\n' ' ')
-          echo "word_count=\$(echo -n '${report_content_no_newlines}' | wc -w)" >> $GITHUB_ENV
+          word_count=$(echo -n "$report_content" | wc -w)
+          echo "word_count=$word_count" >> $GITHUB_ENV
 
       - name: PR Comment
         if: steps.count-words.outputs.word_count < 65536
