@@ -167,10 +167,15 @@ jobs:
           artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/#artifacts"
           extention_link="https://chromewebstore.google.com/detail/markdown-viewer/ckkdlimhmcjmikdlpkmbgfkaikojcbjk"
           comment_message="### Semgrep Report ###
+          :warning::warning::warning: ### SAST scan check has failed. ###
           The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report.
           For best viewing experience install [Markdown Viewer Extention](${extention_link}) open the report in chrome.
           
-          Note - Follow till first 30 seconds of the extention's YouTube tutorial for required settings.
+          Note - Steps to follow for extention settings or Follow till first 30 seconds of the extention's YouTube tutorial for required settings.
+          1. Go to the Advanced Options in extention settings
+          2. File Access ==> Allow Access for files
+          3. scroll to Allow access to file URLs and enable it.
+          Thats it. Now view your .md file in chrome.
           "
           echo "$comment_message"
           echo 'report<<EOF' >> $GITHUB_OUTPUT
