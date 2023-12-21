@@ -129,19 +129,12 @@ jobs:
           # Save the CSV data to a file
           echo "$csvData" > semgrep_report.csv
 
-          #!/bin/bash
+          # Add header row to the new CSV file
+          echo "Rule Id,Message,Line Number,File Name" > "semgrep_report.csv"
 
-          # Specify the path to your data file
-          data_file="./semgrep_report.csv"
+          # Convert pipe-separated values to comma-separated and append to the new CSV file
+          awk -F'|' -v OFS=',' '{print $1, $2, $3, $4}' "semgrep_report.csv" >> "semgrep_report.csv"
 
-          # Convert data to GitHub-style table format
-          {
-              echo "| Rule Id | Message | Line Number | File Name |"
-              echo "|---------|---------|--------------|-----------|"
-              tail -n +2 "$data_file" | while IFS='|' read -r rule_id message line_number file_name; do
-                  echo "| $rule_id | $message | $line_number | $file_name |"
-              done
-          } > semgrep_report.md
 
           # Append the CSV data to the output file
           echo 'report<<EOF' >> $GITHUB_OUTPUT
@@ -159,38 +152,48 @@ jobs:
             --- | --- | --- | --- \n
             ${{steps.generate_report.outputs.report}}\n\n
             "
-      - name: Artifact link
+      # - name: Artifact link and PR comment
+      #   continue-on-error: true
+      #   if: steps.pr-comment.outcome == 'failure'
+      #   id: artifact
+      #   run: |
+      #     artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/#artifacts"
+     
+      #     comment_message="### Semgrep Report: SAST scan check has failed ###
+      #     :warning::warning::warning:
+      #     The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report.
+      - name: Artifact link and PR comment
         continue-on-error: true
         if: steps.pr-comment.outcome == 'failure'
-        id: artifact
-        run: |
-          artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/#artifacts"
-          extention_link="https://chromewebstore.google.com/detail/markdown-viewer/ckkdlimhmcjmikdlpkmbgfkaikojcbjk"
-          youtube_link="https://youtu.be/mlB-SQVq_oU?feature=shared"
-          comment_message="### Semgrep Report: SAST scan check has failed ###
-          :warning::warning::warning:
-          The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report.
-          For best viewing experience install [Markdown Viewer Extention](${extention_link}) open the report in chrome.
+        run: | 
+              artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/#artifacts"  
+              comment_message="### Semgrep Report: SAST scan check has failed ###
+              :warning::warning::warning:
+              The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report."
+
+              echo -n "{\"body\":\"$comment_message\n\n" > result.json
+              cat semgrepreport.json >> report.json
+              echo "\"}" >> report.json
+
+              curl -X POST -H "Accept: application/vnd.github.v3+json" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                ${{ github.event.pull_request.comments_url }} \
+                -d @report.json          
+
           
-          Note - Steps to follow for extention settings or follow till first 30 seconds of the [Extention's YouTube tutorial](${youtube_link}) for required settings.
-          1. Go to the Advanced Options in extention settings
-          2. File Access ==> Allow Access for files
-          3. scroll to Allow access to file URLs and enable it.
-          Thats it. Now view your .md file in chrome.
-          "
-          echo "$comment_message"
-          echo 'report<<EOF' >> $GITHUB_OUTPUT
-          echo "$comment_message" >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
+          # echo "$comment_message"
+          # echo 'report<<EOF' >> $GITHUB_OUTPUT
+          # echo "$comment_message" >> $GITHUB_OUTPUT
+          # echo 'EOF' >> $GITHUB_OUTPUT
 
 
-      - name: PR Comment with Artifact Link
-        continue-on-error: true
-        if: steps.pr-comment.outcome == 'failure'
-        uses: mshick/add-pr-comment@v2
-        with:
-            message-id: sast-scan
-            message: "${{steps.artifact.outputs.report}}"
+      # - name: PR Comment with Artifact Link
+      #   continue-on-error: true
+      #   if: steps.pr-comment.outcome == 'failure'
+      #   uses: mshick/add-pr-comment@v2
+      #   with:
+      #       message-id: sast-scan
+      #       message: "${{steps.artifact.outputs.report}}"
 
       - name: Upload Artifact
         continue-on-error: true
@@ -198,7 +201,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Semgrep findings report
-          path:   semgrep_report.md
+          path:   semgrep_report.csv
 
       - name: Semgrep after step
         if: ${{ inputs.semgrep_after_step_command != '' }}
