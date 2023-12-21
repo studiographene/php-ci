@@ -170,16 +170,14 @@ jobs:
               comment_message="### Semgrep Report: SAST scan check has failed ###
               :warning::warning::warning:
               The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report."
-
-              echo -n "{\"body\":\"$comment_message\n\n" > result.json
-              cat semgrepreport.json >> report.json
-              echo "\"}" >> report.json
-
+      
+              echo -n "{\"body\":\"$comment_message\"}" > result.json
+      
               curl -X POST -H "Accept: application/vnd.github.v3+json" \
                 -H "Authorization: Bearer ${GITHUB_TOKEN}" \
                 ${{ github.event.pull_request.comments_url }} \
-                -d @report.json          
-
+                -d @result.json
+    
           
           # echo "$comment_message"
           # echo 'report<<EOF' >> $GITHUB_OUTPUT
