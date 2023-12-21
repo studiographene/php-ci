@@ -129,6 +129,20 @@ jobs:
           # Save the CSV data to a file
           echo "$csvData" > semgrep_report.csv
 
+          #!/bin/bash
+
+          # Specify the path to your data file
+          data_file="./semgrep_report.csv"
+
+          # Convert data to GitHub-style table format
+          {
+              echo "| Rule Id | Message | Line Number | File Name |"
+              echo "|---------|---------|--------------|-----------|"
+              tail -n +2 "$data_file" | while IFS='|' read -r rule_id message line_number file_name; do
+                  echo "| $rule_id | $message | $line_number | $file_name |"
+              done
+          } > semgrep_report.md
+
           # Append the CSV data to the output file
           echo 'report<<EOF' >> $GITHUB_OUTPUT
           echo "$csvData" >> $GITHUB_OUTPUT
@@ -173,7 +187,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Semgrep findings report
-          path:   semgrep_report.csv
+          path:   semgrep_report.md
 
       - name: Semgrep after step
         if: ${{ inputs.semgrep_after_step_command != '' }}
