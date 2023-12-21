@@ -167,7 +167,7 @@ jobs:
           artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/#artifacts"
           extention_link="https://chromewebstore.google.com/detail/markdown-viewer/ckkdlimhmcjmikdlpkmbgfkaikojcbjk"
           comment_message="### Semgrep Report ###
-          :warning::warning::warning: ### SAST scan check has failed. ###
+          :warning::warning::warning: **### SAST scan check has failed ###**
           The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report.
           For best viewing experience install [Markdown Viewer Extention](${extention_link}) open the report in chrome.
           
