@@ -168,7 +168,7 @@ jobs:
           extention_link="https://chromewebstore.google.com/detail/markdown-viewer/ckkdlimhmcjmikdlpkmbgfkaikojcbjk"
           youtube_link="https://youtu.be/mlB-SQVq_oU?feature=shared"
           comment_message="### Semgrep Report: SAST scan check has failed ###
-                                     :warning::warning::warning:
+          :warning::warning::warning:
           The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report.
           For best viewing experience install [Markdown Viewer Extention](${extention_link}) open the report in chrome.
           
