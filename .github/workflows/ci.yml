@@ -165,8 +165,11 @@ jobs:
         id: artifact
         run: |
           artifact_link="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/#artifacts"
+          extention_link="https://chromewebstore.google.com/detail/markdown-viewer/ckkdlimhmcjmikdlpkmbgfkaikojcbjk"
           comment_message="### Semgrep Report ###
-          The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report."
+          The findings are too large to be displayed in PR comments. Please refer to the [GitHub artifacts](${artifact_link}) for the detailed report.
+          For best viewing experience install [Markdown Viewer Extention](${extention_link}) open the report in chrome.
+          Just enable Allow access to file URLs in extention settings and you are good to go."
           echo "$comment_message"
           echo 'report<<EOF' >> $GITHUB_OUTPUT
           echo "$comment_message" >> $GITHUB_OUTPUT
