@@ -130,10 +130,10 @@ jobs:
           echo "$csvData" > semgrep_report.csv
 
           # Add header row to the new CSV file
-          echo "Rule Id,Message,Line Number,File Name" > "semgrep_report.csv"
+          echo "Rule Id,Message,Line Number,File Name" > "semgrep_reports.csv"
 
           # Convert pipe-separated values to comma-separated and append to the new CSV file
-          awk -F'|' -v OFS=',' '{print $1, $2, $3, $4}' "semgrep_report.csv" >> "semgrep_report.csv"
+          awk -F'|' -v OFS=',' '{print $1, $2, $3, $4}' "semgrep_report.csv" >> "semgrep_reports.csv"
 
 
           # Append the CSV data to the output file
@@ -201,7 +201,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Semgrep findings report
-          path:   semgrep_report.csv
+          path:   semgrep_reports.csv
 
       - name: Semgrep after step
         if: ${{ inputs.semgrep_after_step_command != '' }}
