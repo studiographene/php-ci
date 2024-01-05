@@ -177,8 +177,8 @@ jobs:
         run: |
           ${{ inputs.sbom_after_step_command}}
 
-  osv:
-    name: OSV/Dependency Scan using Google OSV
+  dependency_scan:
+    name: Dependency Scan using Google OSV
     needs: sbom
     if: ${{ !contains( inputs.excluded_jobs, 'osv' ) && (github.actor != 'dependabot[bot]') }}
     runs-on: ubuntu-latest
@@ -204,7 +204,7 @@ jobs:
           ${{ inputs.osv_after_step_command}}
 
   licenseScan:
-    name: Executing a licenseScan using studiographene-cli
+    name: LicenseScan using studiographene-cli
     needs: sbom
     if: ${{ !contains( inputs.excluded_jobs, 'licenseScan' ) && (github.actor != 'dependabot[bot]') }}
     runs-on: ubuntu-latest
@@ -240,7 +240,7 @@ jobs:
           ${{ inputs.licensescan_after_step_command}}
 
   gitleaks:
-    name: Gitleaks scan to find secrets
+    name: Secrets scan using Gitleaks
     if: ${{ !contains( inputs.excluded_jobs, 'gitleaks' ) && (github.actor != 'dependabot[bot]') }}
     runs-on: ubuntu-latest
     permissions: write-all
