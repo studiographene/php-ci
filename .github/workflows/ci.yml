@@ -180,7 +180,7 @@ jobs:
   dependency_scan:
     name: Dependency Scan using Google OSV
     needs: sbom
-    if: ${{ !contains( inputs.excluded_jobs, 'osv' ) && (github.actor != 'dependabot[bot]') }}
+    if: ${{ !contains( inputs.excluded_jobs, 'dependency_scan' ) && (github.actor != 'dependabot[bot]') }}
     runs-on: ubuntu-latest
     permissions: write-all
     container:
