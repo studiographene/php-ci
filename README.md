@@ -1,4 +1,5 @@
 # php-ci
+
 CI scans workflows for NodeJS based projects. Following is the sample code of the CI pipeline
 
 ```sh
@@ -21,19 +22,34 @@ jobs:
     permissions: write-all
 ```
 
-There are a few parametes that can be set as custom inputs (in the with section):
-- project_name:  name of the project
-- excluded_jobs: A string of jobs that you want to exculude. For multiple, send the jobs comma seperated.
-- package_manager: default is npm
-- npm_token: NPM token if valid
-- build_command: build command for the project
-- docker_build_command: Docker build command
-- lint_command: lint command for the project
-All jobs that are running:
+## Inputs
+
+### Required:
+
+| Name | Description |
+| ---- | ----------- |
+|      |             |
+
+### Optional:
+
+| Name                     | Description                                                                 | Default                          |
+| ------------------------ | --------------------------------------------------------------------------- | -------------------------------- |
+| excluded_jobs            | A string of comma separated jobs that you want to exculude.                 |                                  |
+| docker_build_command     | Docker build command                                                        | `docker build -t local:latest .` |
+| docker_build_image_id    | Docker image ID as mentioned in docker_build_command                        | `local:latest`                   |
+| CONTAINER_SCANNERS:      | comma-separated list of what security issues to detect (vuln,secret,config) | `vuln`                           |
+| CONTAINER_SCAN_SKIP_DIRS | Comma separated list of directories to skip scanning                        |                                  |
+| lint_command             | lint command for the project                                                | `npm run lint`                   |
+| allowedLicenses          | A file containing allowed licenses name in License scan finding             |                                  |
+| semgrep_options          |                                                                             |                                  |
+
+---
+
+### Jobs list:
+
 - sast
-- osv
+- dependency_scan
+- licenseScan
 - gitleaks
-- lint
-- build
 - docker
-- danger
+- pr_agent
