@@ -65,7 +65,7 @@ jobs:
 
   Technology_based_scans:
     name: Docker build check
-    if: ${{!contains( inputs.excluded_jobs, 'docker' ) && !contains(github.actor, 'github-actions[bot]')  && (github.event_name != 'issue_comment') && (github.actor != 'dependabot[bot]') }}
+    if: ${{ !(contains(fromJSON('["github-actions[bot]", "dependabot[bot]"]'), github.actor)) && (github.event_name != 'issue_comment') }}
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
@@ -144,7 +144,7 @@ jobs:
   Security-scans:
     runs-on: ubuntu-latest
     permissions: write-all
-    if: ${{!contains(github.actor, 'github-actions[bot]')  && (github.event_name != 'issue_comment') && (github.actor != 'dependabot[bot]') }}
+    if: ${{ !(contains(fromJSON('["github-actions[bot]", "dependabot[bot]"]'), github.actor)) && (github.event_name != 'issue_comment') }}
     container:
       image: public.ecr.aws/studiographene/ci:php-8.3-alpine
     steps:
@@ -264,7 +264,7 @@ jobs:
 
   pr_agent:
     name: Codium PR Agent Scan
-    if: ${{ !contains( inputs.excluded_jobs, 'pr_agent' ) && (github.actor != 'dependabot[bot]') && !contains(github.actor, 'github-actions[bot]')}}
+    if: ${{ !contains( inputs.excluded_jobs, 'pr_agent' ) && !(contains(fromJSON('["dependabot[bot]", "github-actions[bot]"]'), github.actor)) }}
     runs-on: ubuntu-latest
     steps:
       - name: before step
