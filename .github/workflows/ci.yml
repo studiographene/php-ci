@@ -35,54 +35,12 @@ on:
         description: "Comma separated list of directories to skip scanning"
         type: string
         required: false
-      lint_command:
-        type: string
-        default: "npm run lint"
       allowedLicenses:
         type: string
         default: "allowed_licenses.txt"
       semgrep_options:
         type: string
         default: ""
-      danger_before_step_command:
-        type: string
-        default: ""
-      danger_after_step_command:
-        type: string
-        default: ""
-      semgrep_before_step_command:
-        type: string
-        default: ""
-      semgrep_after_step_command:
-        type: string
-        default: ""
-      sbom_before_step_command:
-        type: string
-        default: ""
-      sbom_after_step_command:
-        type: string
-        default: ""
-      osv_before_step_command:
-        type: string
-        default: ""
-      osv_after_step_command:
-        type: string
-        default: ""
-      licensescan_before_step_command:
-        type: string
-        default: ""
-      licensescan_after_step_command:
-        type: string
-        default: ""
-      gitleaks_before_step_command:
-        type: string
-        default: ""
-      gitleaks_after_step_command:
-        type: string
-        default: ""
-      run_pr_agent:
-        type: string
-        default: "no"
       docker_before_step_command:
         type: string
         default: ""
@@ -94,196 +52,20 @@ on:
         default: ""
       pr_agent_after_step_command:
         type: string
+        default: "" 
+      security_scan_before_step_command:
+        type: string
         default: ""
+      security_scan_after_step_command:
+        type: string
+        default: ""        
 
 jobs:
-  sast:
-    name: SAST Scan using semgrep
-    if: ${{ !contains( inputs.excluded_jobs, 'sast' ) && (github.actor != 'dependabot[bot]') }}
-    runs-on: ubuntu-latest
-    permissions: write-all
-    container:
-      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.REF }}
-      - name: Semgrep before step
-        if: ${{ inputs.semgrep_before_step_command != '' }}
-        run: |
-          ${{ inputs.semgrep_before_step_command}}
-      - name: SAST Scan
-        id: generate_report
-        run: |
-          semgrep scan --config "p/default" --sarif ${{ inputs.semgrep_options }} > semgrep.sarif
+  
 
-          csvData=$(node - << EOF
-          const fs = require('fs');
-          const sarifFile = fs.readFileSync("semgrep.sarif", 'utf8');
-          const sarifData = JSON.parse(sarifFile);
-
-          const tableData = [];
-
-          for (const run of sarifData.runs) {
-            for (const result of run.results) {
-              let ruleId = result.ruleId.replaceAll(',',';');
-              ruleId = ruleId.replaceAll('\n','');
-              let message = result.message.text.replaceAll(',', ';');
-              message = message.replaceAll('\n','');
-              const severity = result.level;
-              const location = result.locations[0].physicalLocation;
-              const lineNumber = location.region.startLine;
-              const fileName = location.artifactLocation.uri;
-              // Add data to the tableData array
-              tableData.push(ruleId + "|" + message +"|" + lineNumber + "|" + fileName);
-            }
-          }                  
-          // Log the CSV data as a string
-          const csvData = tableData.join('\n');
-          console.log(csvData);
-          EOF
-          )
-
-          # Append the CSV data to the output file
-          echo 'report<<EOF' >> $GITHUB_OUTPUT
-          echo "$csvData" >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
-
-      - uses: mshick/add-pr-comment@v2
-        with:
-          message-id: sast-scan
-          message: "### Semgrep Report \n
-            Below are the issues found by semgrep: \n
-            \n\nRule Id | Message | Line Number | File Name \n
-            --- | --- | --- | --- \n
-            ${{steps.generate_report.outputs.report}}\n\n
-            "
-      - name: Semgrep after step
-        if: ${{ inputs.semgrep_after_step_command != '' }}
-        run: |
-          ${{ inputs.semgrep_after_step_command}}
-
-  sbom:
-    name: SBOM Generator using CycloneDX
-    runs-on: ubuntu-latest
-    permissions: write-all
-    container:
-      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.REF }}
-      - name: SBOM before step
-        if: ${{ inputs.sbom_before_step_command != '' }}
-        run: |
-          ${{ inputs.sbom_before_step_command}}
-      - name: generate sbom
-        run: |
-          cdxgen -r -o bom.xml -p
-        env:
-          FETCH_LICENSE: true
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CDXGEN_DEBUG_MODE: debug
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: sbom
-          path: bom.xml
-      - name: SBOM after step
-        if: ${{ inputs.sbom_after_step_command != '' }}
-        run: |
-          ${{ inputs.sbom_after_step_command}}
-
-  dependency_scan:
-    name: Dependency Scan using Google OSV
-    needs: sbom
-    if: ${{ !contains( inputs.excluded_jobs, 'dependency_scan' ) && (github.actor != 'dependabot[bot]') }}
-    runs-on: ubuntu-latest
-    permissions: write-all
-    container:
-      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
-    steps:
-      - name: Download Artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sbom
-          path: .
-      - name: osv before step
-        if: ${{ inputs.osv_before_step_command != '' }}
-        run: |
-          ${{ inputs.osv_before_step_command}}
-      - name: OSV Scan
-        run: |
-          osv-scanner --format table --config=/root/configs/osv/config.toml --sbom=bom.xml
-      - name: osv after step
-        if: ${{ inputs.osv_after_step_command != '' }}
-        run: |
-          ${{ inputs.osv_after_step_command}}
-
-  licenseScan:
-    name: LicenseScan using studiographene-cli
-    needs: sbom
-    if: ${{ !contains( inputs.excluded_jobs, 'licenseScan' ) && (github.actor != 'dependabot[bot]') }}
-    runs-on: ubuntu-latest
-    permissions: write-all
-    env:
-      ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      PR_NUMBER: ${{ github.event.number }}
-      PROJECT_NAME: ${{ github.event.repository.name }}
-      PROJECT_OWNER: ${{ github.repository_owner }}
-    container:
-      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.REF }}
-      - name: LicenseScan before step
-        if: ${{ inputs.licensescan_before_step_command != '' }}
-        run: |
-          ${{ inputs.licensescan_before_step_command}}
-      - name: Download Artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sbom
-          path: .
-      - name: License Scan
-        run: |
-          /root/executables/ci-utility check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}
-
-      - name: LicenseScan after step
-        if: ${{ inputs.licensescan_after_step_command != '' }}
-        run: |
-          ${{ inputs.licensescan_after_step_command}}
-
-  gitleaks:
-    name: Secrets scan using Gitleaks
-    if: ${{ !contains( inputs.excluded_jobs, 'gitleaks' ) && (github.actor != 'dependabot[bot]') }}
-    runs-on: ubuntu-latest
-    permissions: write-all
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: gitleaks before step
-        if: ${{ inputs.gitleaks_before_step_command != '' }}
-        run: |
-          ${{ inputs.gitleaks_before_step_command}}
-      - name: Gitleaks scan
-        uses: gitleaks/gitleaks-action@v1.6.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: gitleaks after step
-        if: ${{ inputs.gitleaks_after_step_command != '' }}
-        run: |
-          ${{ inputs.gitleaks_after_step_command }}
-
-  docker:
+  Technology_based_scans:
     name: Docker build check
-    if: ${{ !contains( inputs.excluded_jobs, 'docker' ) && (github.actor != 'dependabot[bot]') }}
+    if: ${{ !(contains(fromJSON('["github-actions[bot]", "dependabot[bot]"]'), github.actor)) && (github.event_name != 'issue_comment') }}
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
@@ -296,6 +78,7 @@ jobs:
         run: |
           ${{ inputs.docker_before_step_command }}
       - name: Docker Build
+        if: ${{ always() && !contains( inputs.excluded_jobs, 'docker' ) }}
         run: |
           ${{ inputs.docker_build_command }}
         env:
@@ -357,12 +140,135 @@ jobs:
         run: |
           ${{ inputs.docker_after_step_command }}
 
+
+
+  Security-scans:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    if: ${{ !(contains(fromJSON('["github-actions[bot]", "dependabot[bot]"]'), github.actor)) && (github.event_name != 'issue_comment') }}
+    container:
+      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.REF }}
+
+      - name: Security scans before step
+        if: ${{ inputs.security_scan_before_step_command != '' }}
+        run: |
+          ${{ inputs.security_scan_before_step_command}}
+
+      - name: SAST Scan
+        if: ${{ always() && !contains(inputs.excluded_jobs, 'sast')  }}
+        
+        id: generate_report
+        run: |
+          set +e
+          semgrep scan --error --config  "p/default" --config /root/configs/semgrep/rules/eslint.v1.3.32.yml --sarif ${{ inputs.semgrep_options }} > semgrep.sarif 
+          SEMGREP_EXIT_CODE=$?
+          set -e
+          csvData=$(node - << EOF
+          const fs = require('fs');
+          const sarifFile = fs.readFileSync("semgrep.sarif", 'utf8');
+          const sarifData = JSON.parse(sarifFile);
+
+          const tableData = [];
+
+          for (const run of sarifData.runs) {
+            for (const result of run.results) {
+              let ruleId = result.ruleId.replaceAll(',',';');
+              ruleId = ruleId.replaceAll('\n','');
+              let message = result.message.text.replaceAll(',', ';');
+              message = message.replaceAll('\n','');
+              const severity = result.level;
+              const location = result.locations[0].physicalLocation;
+              const lineNumber = location.region.startLine;
+              const fileName = location.artifactLocation.uri;
+              // Add data to the tableData array
+              tableData.push(ruleId + "|" + message +"|" + lineNumber + "|" + fileName);
+            }
+          }                  
+          // Log the CSV data as a string
+          const csvData = tableData.join('\n');
+          console.log(csvData);
+          EOF
+          )
+
+          # Append the CSV data to the output file
+          echo 'generating report'
+          echo 'report<<EOF' >> $GITHUB_OUTPUT
+          echo "$csvData" >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+          exit $SEMGREP_EXIT_CODE
+
+      - uses: mshick/add-pr-comment@v2
+        if: always()
+        with:
+          message-id: sast-scan
+          message: "### Semgrep Report \n
+            Below are the issues found by semgrep: \n
+            \n\nRule Id | Message | Line Number | File Name \n
+            --- | --- | --- | --- \n
+              ${{steps.generate_report.outputs.report}}\n\n
+            "
+      - name: Gitleaks scan
+        if: ${{ always() && !contains(inputs.excluded_jobs, 'gitleaks')  }} 
+        uses: gitleaks/gitleaks-action@v1.6.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name:  Generate SBOM using CycloneDX
+        if: always ()
+        run: |
+          cdxgen --no-recurse -o bom.xml -p
+        env:
+          FETCH_LICENSE: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CDXGEN_DEBUG_MODE: debug
+
+      - name: License Scan
+        env:
+          ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
+          PROJECT_NAME: ${{ github.event.repository.name }}
+          PROJECT_OWNER: ${{ github.repository_owner }}
+        if: ${{ always() && !contains( inputs.excluded_jobs, 'licenseScan' ) }}
+        run: |
+          /root/executables/ci-utility check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}          
+
+      - name: Dependency Scan using Google OSV
+        id: dependency_scan
+        if: ${{ always() && !contains( inputs.excluded_jobs, 'dependency_scan' ) }}
+        run: |
+          set +e
+          osv-scanner --format markdown --config=/root/configs/osv/config.toml --sbom=bom.xml > osv_report.md        
+          OSV_EXIT_CODE=$?
+          set -e          
+          echo 'report<<EOF' >> $GITHUB_OUTPUT
+          cat osv_report.md >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+          exit $OSV_EXIT_CODE
+
+      - name: Comment report
+        if: always()
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: dependency_scan
+          message: "## OSV Dependency Scan Report \n
+                    ### The following vulnerabilities has been detected in the code. Please resolve these before merging the pull request. \n
+                    \n\n${{ steps.dependency_scan.outputs.report }}\n\n
+                    " 
+      - name: Security scans after step
+        if: ${{ inputs.security_scan_after_step_command != '' }}
+        run: |
+          ${{ inputs.security_scan_after_step_command }}  
+
   pr_agent:
-    name: Run pr agent on every pull request, respond to user comments
-    if: ${{ ( inputs.run_pr_agent == 'yes' ) && (github.actor != 'dependabot[bot]') }}
+    name: Codium PR Agent Scan
+    if: ${{ !contains( inputs.excluded_jobs, 'pr_agent' ) && !(contains(fromJSON('["dependabot[bot]", "github-actions[bot]"]'), github.actor)) }}
     runs-on: ubuntu-latest
     steps:
-      - name: PR agent before step
+      - name: before step
         if: ${{ inputs.pr_agent_before_step_command != '' }}
         run: |
           ${{ inputs.pr_agent_before_step_command}}
@@ -372,7 +278,7 @@ jobs:
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: PR agent after step
+      - name: after step
         if: ${{ inputs.pr_agent_after_step_command != '' }}
         run: |
-          ${{ inputs.pr_agent_after_step_command}}
+          ${{ inputs.pr_agent_after_step_command}}          
