@@ -35,9 +35,6 @@ on:
         description: "Comma separated list of directories to skip scanning"
         type: string
         required: false
-      lint_command:
-        type: string
-        default: "npm run lint"
       allowedLicenses:
         type: string
         default: "allowed_licenses.txt"
