@@ -219,13 +219,6 @@ jobs:
         uses: gitleaks/gitleaks-action@v1.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Download LockFile Artifact
-        if:  always()
-        uses: actions/download-artifact@v2
-        with:
-          name: lockFile
-          path: .
       - name:  Generate SBOM using CycloneDX
         if: always ()
         run: |
