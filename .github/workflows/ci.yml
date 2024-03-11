@@ -78,6 +78,7 @@ jobs:
         run: |
           ${{ inputs.docker_before_step_command }}
       - name: Docker Build
+        if: ${{ always() && !contains( inputs.excluded_jobs, 'docker' ) }}
         run: |
           ${{ inputs.docker_build_command }}
         env:
