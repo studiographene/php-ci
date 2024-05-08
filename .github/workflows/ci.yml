@@ -52,227 +52,30 @@ on:
         default: ""
       pr_agent_after_step_command:
         type: string
-        default: "" 
+        default: ""
       security_scan_before_step_command:
         type: string
         default: ""
       security_scan_after_step_command:
         type: string
-        default: ""        
+        default: ""
 
 jobs:
-  Technology_based_scans:
-    name: Docker build check
-    if: ${{ !(contains(fromJSON('["github-actions[bot]", "dependabot[bot]"]'), github.actor)) && (github.event_name != 'issue_comment') }}
-    runs-on: ubuntu-latest
+  call_workflow:
+    uses: studiographene/github-action-workflows/.github/workflows/php-ci.yml@master # if you want alternatively pin to tag version version
+    with:
+      excluded_jobs: ${{ inputs.excluded_jobs }}
+      docker_build_command: ${{ inputs.docker_build_command }}
+      docker_build_image_id: ${{ inputs.docker_build_image_id }}
+      CONTAINER_SCANNERS: ${{ inputs.CONTAINER_SCANNERS }}
+      CONTAINER_SCAN_SKIP_DIRS: ${{ inputs.CONTAINER_SCAN_SKIP_DIRS }}
+      allowedLicenses: ${{ inputs.allowedLicenses }}
+      semgrep_options: ${{ inputs.semgrep_options }}
+      security_scan_before_step_command: ${{ inputs.security_scan_before_step_command }}
+      security_scan_after_step_command: ${{ inputs.security_scan_after_step_command }}
+      pr_agent_before_step_command: ${{ inputs.pr_agent_before_step_command }}
+      pr_agent_after_step_command: ${{ inputs.pr_agent_after_step_command }}
+      container_scan_before_step_command: ${{ inputs.docker_before_step_command }}
+      container_scan_after_step_command: ${{ inputs.docker_after_step_command }}
+    secrets: inherit
     permissions: write-all
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.REF }}
-      - name: before step
-        if: ${{ inputs.docker_before_step_command != '' }}
-        run: |
-          ${{ inputs.docker_before_step_command }}
-      - name: Docker Build
-        if: ${{ always() && !contains( inputs.excluded_jobs, 'docker' ) }}
-        run: |
-          ${{ inputs.docker_build_command }}
-        env:
-          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Creating Trivy report PR comment template file
-        if: ${{ always() && !contains( inputs.excluded_jobs, 'docker' ) }}
-        run: |
-          cat <<EOF >> prcomment.tpl 
-          | Package | Vulnerability | Severity | Status | Installed Version | Fixed Version | Title | \n
-          | ------- | ------------- | -------- | ------ | ----------------- | ------------- | ----- |
-          {{- range .}}
-          {{- range .Vulnerabilities}}
-          \n | {{ .PkgName | html }} | {{ .VulnerabilityID | html }} | {{ .Severity | html }} | {{ .Status | html }} | {{ .InstalledVersion | html }} | {{ .FixedVersion | html }} | {{ .Title | html }} |
-          {{ end }}
-          {{- end }}
-          EOF
-      - name: Trivy container vulnerability scan
-        id: container_scan
-        uses: aquasecurity/trivy-action@master
-        if: ${{ always() && !contains( inputs.excluded_jobs, 'docker' ) }}
-        with:
-          image-ref: ${{ inputs.docker_build_image_id }}
-          format: "template"
-          template: "@prcomment.tpl"
-          output: "trivyreport.json"
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
-          scanners: ${{ inputs.CONTAINER_SCANNERS }}
-          skip-dirs: ${{ inputs.CONTAINER_SCAN_SKIP_DIRS }}
-      - name: Report vulnerabilities in PR
-        if: ${{ failure() && steps.container_scan.outcome == 'failure' && !contains( inputs.excluded_jobs, 'docker' ) }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          echo -n "{\"body\":\"### Container Vulnerabilities Detected\nThe following vulnerabilities of HIGH or CRITICAL severity has been detected in the container. Please resolve these before merging the pull request.\n\n" > result.json
-          cat trivyreport.json >> result.json
-          echo "\"}" >> result.json
-          curl -X POST -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            ${{ github.event.pull_request.comments_url }} \
-            -d @result.json
-
-      - name: Report no vulnerabilities in PR
-        if: ${{ success() && steps.container_scan.outcome == 'success' && !contains( inputs.excluded_jobs, 'docker' ) }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          echo -n "{\"body\":\"### No vulnerabilities detected\nNo vulnerabilities of HIGH or CRITICAL severity has been detected in the code.\"}" > result.json
-          curl -X POST -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            ${{ github.event.pull_request.comments_url }} \
-            -d @result.json
-      - name: after step
-        if: ${{ inputs.docker_after_step_command != '' }}
-        run: |
-          ${{ inputs.docker_after_step_command }}
-
-  Security-scans:
-    runs-on: ubuntu-latest
-    permissions: write-all
-    if: ${{ !(contains(fromJSON('["github-actions[bot]", "dependabot[bot]"]'), github.actor)) && (github.event_name != 'issue_comment') }}
-    container:
-      image: public.ecr.aws/studiographene/ci:php-8.3-alpine
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.REF }}
-
-      - name: Security scans before step
-        if: ${{ inputs.security_scan_before_step_command != '' }}
-        run: |
-          ${{ inputs.security_scan_before_step_command}}
-
-      - name: SAST Scan
-        if: ${{ always() && !contains(inputs.excluded_jobs, 'sast')  }}
-        
-        id: generate_sast_report
-        run: |
-          set +e
-          semgrep scan --error --config  "p/default" --config /root/configs/semgrep/rules/eslint.v1.3.32.yml --sarif ${{ inputs.semgrep_options }} > semgrep.sarif 
-          SEMGREP_EXIT_CODE=$?
-          set -e
-          if [ $SEMGREP_EXIT_CODE -ne 0 ]; then
-            echo "## Semgrep SAST Scan Report" > sast_report.md
-            echo "### Below are the vulnerabilities found in the code. Please resolve these before merging the pull request: " >> sast_report.md
-            echo "| Rule Id | Severity |  Message | Line Number | File Name |" >> sast_report.md
-            echo "| --- | --- | --- | --- | --- |" >> sast_report.md
-            echo 'const fs = require("fs");
-            const sarifFile = fs.readFileSync("semgrep.sarif", "utf8");
-            const sarifData = JSON.parse(sarifFile);
-            for (const run of sarifData.runs) {
-              for (const result of run.results) {
-                let ruleId = result.ruleId.replaceAll(",",";");
-                ruleId = ruleId.replaceAll("\n","");
-                let message = result.message.text.replaceAll(",", ";");
-                message = message.replaceAll("\n","");
-                const severity = result.level;
-                const location = result.locations[0].physicalLocation;
-                const lineNumber = location.region.startLine;
-                const fileName = location.artifactLocation.uri;
-                console.log("| " + ruleId + " | "  + severity + "|" + message +" | " + lineNumber + " | " + fileName + " |");
-              }
-            }' > sast_report_format.js
-            node sast_report_format.js >> sast_report.md
-
-            else
-              echo "## Semgrep SAST Scan Report" > sast_report.md
-              echo "### :tada:! There are no vulnerabilities found in the code." >> sast_report.md
-            fi
-            exit $SEMGREP_EXIT_CODE
-
-      - uses: mshick/add-pr-comment@v2
-        if: always()
-        with:
-          message-id: sast-scan
-          message-path: sast_report.md
-      - name: Gitleaks scan
-        if: ${{ always() && !contains(inputs.excluded_jobs, 'gitleaks')  }} 
-        uses: gitleaks/gitleaks-action@v1.6.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name:  Generate SBOM using CycloneDX
-        if: always ()
-        run: |
-          cdxgen --no-recurse -o bom.xml -p
-        env:
-          FETCH_LICENSE: true
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CDXGEN_DEBUG_MODE: debug
-
-      - name: License Scan
-        env:
-          ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.number }}
-          PROJECT_NAME: ${{ github.event.repository.name }}
-          PROJECT_OWNER: ${{ github.repository_owner }}
-        if: ${{ always() && !contains( inputs.excluded_jobs, 'licenseScan' ) }}
-        run: |
-           if [ ! -f $(pwd)/allowed_licenses.txt ]; then
-             touch $(pwd)/allowed_licenses.txt
-           fi
-           /root/executables/ci-utility check --sbom bom.xml --allowedLicences ${{ inputs.allowedLicenses }}          
-      - name: Dependency Scan using Google OSV
-        id: dependency_scan
-        if: ${{ always() && !contains( inputs.excluded_jobs, 'dependency_scan' ) }}
-        run: |
-          set +e
-          osv-scanner --format markdown --config=/root/configs/osv/config.toml --sbom=bom.xml > osv_raw_report.md 
-          OSV_EXIT_CODE=$?
-          set -e    
-          if [ $OSV_EXIT_CODE -ne 0 ]; then
-            echo "## OSV Dependency Scan Report" >> osv_report.md
-            echo "### The following vulnerabilities have been detected in the packages. Please resolve these before merging the pull request:" >> osv_report.md
-            cat osv_raw_report.md >> osv_report.md
-          else
-            echo "## OSV Dependency Scan Report" >> osv_report.md
-            echo "### :tada:! There are no vulnerabilities found in the packages." >> osv_report.md
-          fi
-
-          exit $OSV_EXIT_CODE
-
-      - name: generate_osv_report
-        if: always()
-        uses: mshick/add-pr-comment@v2
-        with:
-          message-id: dependency_scan
-          message-path: osv_report.md
-      
-      - name: Security scans after step
-        if: ${{ inputs.security_scan_after_step_command != '' }}
-        run: |
-          ${{ inputs.security_scan_after_step_command }}  
-
-  pr_agent:
-    name: Codium PR Agent Scan
-    if: ${{ !contains( inputs.excluded_jobs, 'pr_agent' ) && !(contains(fromJSON('["dependabot[bot]", "github-actions[bot]"]'), github.actor)) }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: before step
-        if: ${{ inputs.pr_agent_before_step_command != '' }}
-        run: |
-          ${{ inputs.pr_agent_before_step_command}}
-      - name: PR Agent action step
-        id: pragent
-        uses: Codium-ai/pr-agent@main
-        env:
-          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: after step
-        if: ${{ inputs.pr_agent_after_step_command != '' }}
-        run: |
-          ${{ inputs.pr_agent_after_step_command}}          
