@@ -21,23 +21,11 @@ on:
         default: "npm run build"
       docker_build_command:
         type: string
-        default: "docker build -t local:latest ."
+        default: ""
       docker_build_image_id:
         description: "Docker image ID as mentioned in docker_build_command"
         type: string
         default: "local:latest"
-      CONTAINER_SCANNERS:
-        description: "comma-separated list of what security issues to detect (vuln,secret,config). Default = vuln"
-        type: string
-        required: false
-        default: vuln
-      CONTAINER_SCAN_SKIP_DIRS:
-        description: "Comma separated list of directories to skip scanning"
-        type: string
-        required: false
-      allowedLicenses:
-        type: string
-        default: "allowed_licenses.txt"
       semgrep_options:
         type: string
         default: ""
